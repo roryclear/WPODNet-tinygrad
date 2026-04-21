@@ -91,15 +91,12 @@ class WPODNet(torch.nn.Module):
         self.prob_layer = torch.nn.Conv2d(128, 2, kernel_size=3, padding=1)
         self.bbox_layer = torch.nn.Conv2d(128, 6, kernel_size=3, padding=1)
 
-        # Registry a dummy tensor for retrieve the attached device
-        self.register_buffer("dummy", torch.Tensor(), persistent=False)
-
 
     def forward(self, image: torch.Tensor):
-        feature: torch.Tensor = self.backbone(image)
-        probs: torch.Tensor = self.prob_layer(feature)
+        feature = self.backbone(image)
+        probs = self.prob_layer(feature)
         probs = torch.softmax(probs, dim=1)
-        affines: torch.Tensor = self.bbox_layer(feature)
+        affines = self.bbox_layer(feature)
 
         return probs, affines
 
@@ -134,10 +131,6 @@ class Predictor:
         reg_h_mod = reg_h % self.wpodnet.stride
         if reg_h_mod > 0: reg_h += self.wpodnet.stride - reg_h_mod
         return image.resize((reg_w, reg_h))
-
-    def _to_torch_image(self, image: Image.Image) -> torch.Tensor:
-        tensor = to_tensor(image)
-        return tensor.unsqueeze_(0)
 
     def _inference(self, image: torch.Tensor) -> Tuple[np.ndarray, np.ndarray]:
         probs, affines = self.wpodnet.forward(image)
@@ -181,7 +174,7 @@ class Predictor:
     ) -> Prediction:
         orig_h, orig_w = image.height, image.width
         resized = self._resize_to_fixed_ratio(image, dim_min=dim_min, dim_max=dim_max)
-        resized = self._to_torch_image(resized)
+        resized = to_tensor(resized).unsqueeze(0)
         probs, affines = self._inference(resized)
         max_prob = np.amax(probs)
         anchor_y, anchor_x = self._get_max_anchor(probs)
