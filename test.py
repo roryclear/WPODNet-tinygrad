@@ -7,6 +7,12 @@ from PIL import Image, ImageDraw
 from typing import Optional, Tuple
 import numpy as np
 from torchvision.transforms.functional import to_tensor
+from tinygrad import Tensor as tinyTensor
+from torch import Tensor
+
+def to_tiny(x): return tinyTensor(x.detach().numpy())
+
+def to_torch(x): return Tensor(x.numpy())
 
 @dataclass(frozen=True)
 class Prediction:
@@ -27,13 +33,15 @@ class BasicConvBlock(torch.nn.Module):
     def __init__(self, in_channels: int, out_channels: int):
         super().__init__()
         self.conv_layer = torch.nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
-        self.bn_layer = torch.nn.BatchNorm2d(out_channels, momentum=0.99, eps=0.001)
+        self.bn_layer = torch.nn.BatchNorm2d(out_channels, eps=0.001)
         self.act_layer = torch.nn.ReLU(inplace=True)
 
     def forward(self, x):
         x = self.conv_layer(x)
         x = self.bn_layer(x)
-        return self.act_layer(x)
+        x = to_tiny(x)
+        x = tinyTensor.relu(x)
+        return to_torch(x)
 
 
 class ResBlock(torch.nn.Module):
@@ -41,14 +49,17 @@ class ResBlock(torch.nn.Module):
         super().__init__()
         self.conv_block = BasicConvBlock(channels, channels)
         self.sec_layer = torch.nn.Conv2d(channels, channels, kernel_size=3, padding=1)
-        self.bn_layer = torch.nn.BatchNorm2d(channels, momentum=0.99, eps=0.001)
+        self.bn_layer = torch.nn.BatchNorm2d(channels, eps=0.001)
         self.act_layer = torch.nn.ReLU(inplace=True)
 
     def forward(self, x):
         h = self.conv_block(x)
         h = self.sec_layer(h)
         h = self.bn_layer(h)
-        return self.act_layer(x + h)
+        h = to_tiny(h)
+        x = to_tiny(x)
+        ret = tinyTensor.relu(x+h)
+        return to_torch(ret)
 
 
 class WPODNet(torch.nn.Module):
@@ -83,9 +94,6 @@ class WPODNet(torch.nn.Module):
         # Registry a dummy tensor for retrieve the attached device
         self.register_buffer("dummy", torch.Tensor(), persistent=False)
 
-    @property
-    def device(self) -> torch.device:
-        return self.dummy.device
 
     def forward(self, image: torch.Tensor):
         feature: torch.Tensor = self.backbone(image)
