@@ -213,8 +213,12 @@ if __name__ == "__main__":
     image = Image.open("img.jpg")
     prediction = predictor.predict(image)
 
+    expected = [(724, 1397), (1034, 1466), (1030, 1545), (720, 1477)]
+
     print("  bounds", prediction.bounds)
     print("  confidence", prediction.confidence)
+
+    np.testing.assert_allclose(prediction.bounds, expected, rtol=1e-6, atol=1e-6)
 
     new_name = image.filename.split(".jpg")[0] + "_out.jpg"
     annotated_path = Path(new_name).name
