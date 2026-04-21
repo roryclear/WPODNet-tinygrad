@@ -174,7 +174,6 @@ class Predictor:
         orig_h, orig_w = image.height, image.width
         resized = self._resize_to_fixed_ratio(image, dim_min=dim_min, dim_max=dim_max)
         resized = self._to_torch_image(resized)
-        resized = resized.to(self.wpodnet.device)
         probs, affines = self._inference(resized)
         max_prob = np.amax(probs)
         anchor_y, anchor_x = self._get_max_anchor(probs)
